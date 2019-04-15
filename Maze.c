@@ -35,13 +35,13 @@ Maze* mzCreate(size_t size){
     
     new_maze->cellValue = malloc(sizeof(Wall*) * size);
     if(new_maze->cellValue == NULL){
-        printf("Coordinates couldn't be allocated\n");
+        printf("Memory allocation denied : Error\n");
         return NULL;
     }
     for (int nbis = 0; nbis < size; nbis ++){
         new_maze->cellValue[nbis] = malloc(sizeof(Wall) * size);
         if(new_maze->cellValue == NULL){
-            fprintf(stderr,"Memory allocation denied : Error");
+            fprintf(stderr,"Memory allocation denied : Error\n");
             return NULL;
         }
     }
@@ -61,13 +61,11 @@ void mzMakeRandom(Maze* maze){
         fprintf(stderr,"Maze required doesn't exist");
         return;
     }
-    UnionFind* unionSet = ufCreate((maze->size)^2);
+    UnionFind* unionSet = ufCreate((maze->size)*(maze->size));
     Coord cell1;
     Coord cell2;
     cell1.row = 0;
     cell1.col = 0;
-    cell2.row = 0;
-    cell2.col = 0;
     // Randomizing maze
     for(int i = 0; i < maze->size; i++){
         for (int j = 0; j < maze->size ; j++){
@@ -78,42 +76,65 @@ void mzMakeRandom(Maze* maze){
         }
     }
     // Transforming the random maze into a valid one
-    if (mzIsValid(maze) == true)        //checks if the maze is valid, and modifies the Union list with the connected cells
+    if (mzIsValid(maze) == true){        //checks if the maze is valid, and modifies the Union list with the connected cells
+        ufFree(unionSet);
         return;
+    }
     else{
-        for (size_t nbr = 1; nbr <= (maze->size^2); nbr++){
+        for (size_t nbr = 0; nbr < (maze->size*maze->size); nbr++){
             ufStatus check1 = ufUnion(unionSet, nbr, nbr + 1);
             ufStatus check2 = ufUnion(unionSet, nbr, nbr + maze->size);
-            if( check1 != UF_SAME){
+            if(check1 != UF_SAME && check2 != UF_SAME){     //Both right and down cells aren't in same group
+                // opening right wall
+                cell2.row = cell1.row;
+                cell2.col = cell1.col + 1;
                 mzSetWall(maze, cell1, cell2, false);
-                //change cells coords
-                if(nbr % maze->size == 0){
-                    cell1.row = cell1.row + 1;
-                    cell1.col = 0;
-                    cell2.row = cell1.row;
-                    cell2.col = cell1.col + 1;
-                }
-                else{
-                    cell1.col= cell1.col + 1;
-                    cell2.col = cell1.col + 1;
-                }
-            }
-            if(check2 != UF_SAME){
+                //opening wall below
+                cell2.row = cell1.row + 1;
+                cell2.col = cell1.col;
                 mzSetWall(maze, cell1, cell2, false);
-                //change cells coords
+                // changing cell1 coords
                 if(nbr % maze->size == 0){
-                    cell1.row = cell1.row + 1;
+                    cell1.row++;
                     cell1.col = 0;
-                    cell2.row = cell1.row;
-                    cell2.col = cell1.col + 1;
                 }
-                else{
-                    cell1.col= cell1.col + 1;
-                    cell2.col = cell1.col + 1;
-                }
+                else
+                    cell1.col++;
             }
-        }
-    }
+            else if(check1 != UF_SAME){     // Right cell isn't in the same group
+                cell2.row = cell1.row;
+                cell2.col = cell1.col + 1;
+                mzSetWall(maze, cell1, cell2, false);
+                // changing cell1 coords
+                if(nbr % maze->size == 0){
+                    cell1.row++;
+                    cell1.col = 0;
+                }
+                else
+                    cell1.col++;
+            }
+            else if(check2 != UF_SAME){     // Down cell isn't in the same group
+                cell2.row = cell1.row + 1;
+                cell2.col = cell1.col;
+                mzSetWall(maze, cell1, cell2, false);
+                // changing cell1 coords
+                if(nbr % maze->size == 0){
+                    cell1.row++;
+                    cell1.col = 0;
+                }
+                else
+                    cell1.col++;
+            }
+            else{                           // Both neighbour cells are connected together
+                if(nbr % maze->size == 0){
+                    cell1.row++;
+                    cell1.col = 0;
+                }
+                else
+                    cell1.col++;
+            }
+        }// end for
+    } // end else
     ufFree(unionSet);
 }
 
@@ -152,32 +173,32 @@ bool mzIsWallClosed(const Maze* maze, Coord cell1, Coord cell2){
     size_t cell2Col = cell2.col;
     
     if(cell1Row > maze->size || cell2Row > maze->size || cell1Col > maze->size || cell2Col > maze->size){
-        fprintf(stderr,"Cell(s) out of bounds");
+        fprintf(stderr,"Cell(s) out of bounds\n");
         return false;
     }
 // Case cell1 at the left of cell2
-    if(cell1Col < cell2Col){
+    if(cell1Col == (cell2Col-1)){
         if(maze->cellValue[cell1Row][cell1Col].right == 0)
             return false;
         else
             return true;
     }
 // Case cell1 at the right of cell2
-    else if(cell1Col > cell2Col){
+    else if(cell1Col == (cell2Col+1)){
         if(maze->cellValue[cell2Row][cell2Col].right == 0)
             return false;
         else
             return true;
     }
 // Case cell1 above cell2
-    else if(cell1Row < cell2Row){
+    else if(cell1Row == (cell2Row-1)){
         if(maze->cellValue[cell1Row][cell1Col].down == 0)
             return false;
         else
             return true;
     }
 // Case cell2 above cell1
-    else if(cell1Row > cell2Row){
+    else if(cell1Row == (cell2Row+1)){
         if(maze->cellValue[cell2Row][cell2Col].down == 0)
             return false;
         else
@@ -201,39 +222,39 @@ void mzSetWall(Maze* maze, Coord cell1, Coord cell2, bool close){
     size_t cell2Col = cell2.col;
     
     if(cell1Row > maze->size || cell2Row > maze->size || cell1Col > maze->size || cell2Col > maze->size){
-        fprintf(stderr,"Cell(s) out of bounds");
+        fprintf(stderr,"Cell(s) out of bounds\n");
         return;
     }
     // Case cell1 at the left of cell2
-    if(cell1Col < cell2Col){
+    if(cell1Col == (cell2Col-1)){
         if(close == true)
             maze->cellValue[cell1Row][cell1Col].right = 0;
         else
             maze->cellValue[cell1Row][cell1Col].right = 1;
     }
     // Case cell1 at the right of cell2
-    else if(cell1Col > cell2Col){
+    else if(cell1Col == (cell2Col+1)){
         if(close == true)
             maze->cellValue[cell2Row][cell2Col].right = 0;
         else
             maze->cellValue[cell2Row][cell2Col].right = 1;
     }
     // Case cell1 above cell2
-    else if(cell1Row < cell2Row){
+    else if(cell1Row == (cell2Row-1)){
         if(close == true)
             maze->cellValue[cell1Row][cell1Col].down = 0;
         else
             maze->cellValue[cell1Row][cell1Col].down = 1;
     }
     // Case cell2 above cell1
-    else if(cell1Row > cell2Row){
+    else if(cell1Row == (cell2Row+1)){
         if(close == true)
             maze->cellValue[cell2Row][cell2Col].down = 0;
         else
             maze->cellValue[cell2Row][cell2Col].down = 1;
     }
     else{
-        fprintf(stderr,"Cells are not neighbours");
+        fprintf(stderr,"Cells are not neighbours\n");
     }
 }
 
@@ -242,22 +263,24 @@ bool mzIsValid(const Maze* maze){
         fprintf(stderr,"Maze required doesn't exist");
         return false;
     }
-    UnionFind* unionSet = ufCreate((maze->size)^2);
+    UnionFind* unionSet = ufCreate((maze->size)*(maze->size));
     size_t nbrComponents;
-    short int nbr = 1;
-    for(int row = 0; row < maze->size; row++){
-        for(int col = 0; col < maze->size; col++){
-            if(maze->cellValue[row][col].right == 1 && maze->cellValue[row][col].down == 1){
+    short int nbr = 0;
+    for(int row = 0; row < maze->size; row++){      // Check of the right walls
+        for(int col = 0; col < maze->size-1; col++){
+            if(maze->cellValue[row][col].right == 1){
                 ufUnion(unionSet, nbr, nbr+1);
-                ufUnion(unionSet, nbr, nbr+maze->size);
-                nbr++;
+                if(col == (maze->size-1))
+                    nbr = nbr + 2;
+                else
+                    nbr++;
             }
-            
-            else if(maze->cellValue[row][col].right == 1){
-                ufUnion(unionSet, nbr, nbr + 1);
-                nbr++;
-            }
-            else if (maze->cellValue[row][col].down == 1){
+        }
+    }
+    nbr = 1;
+    for(int row = 0; row < maze->size-1; row++){        //check of the walls below
+        for(int col = 0; col < maze->size; col++){
+            if(maze->cellValue[row][col].down == 1){
                 ufUnion(unionSet, nbr, nbr+maze->size);
                 nbr++;
             }
@@ -277,12 +300,13 @@ bool mzIsValid(const Maze* maze){
 void mzPrint(const Maze* maze, FILE* out){
     if(out == NULL)
     {
-        printf("Error! File doesn't exist");
+        printf("Error! File doesn't exist ");
         return;
     }
     
     for(int i=0 ; i < maze->size; i++)    // First line
-        fprintf(out,"+--+");
+        fprintf(out,"+--");
+    fprintf(out,"+");
     fprintf(out,"\n ");
     
     for(int row = 0; row < maze->size; row++){
@@ -297,7 +321,7 @@ void mzPrint(const Maze* maze, FILE* out){
                     else{
                         fprintf(out,"  |");
                         fseeko(out, 0, SEEK_END);
-                        fprintf(out,"+--+\n|");
+                        fprintf(out,"+--\n|");
                     }
             }
             else if(maze->cellValue[row][col].right == 0){      // Rigth closed
