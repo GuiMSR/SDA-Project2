@@ -91,7 +91,7 @@ size_t ufFind(const UnionFind* union_find, size_t item)
 size_t ufComponentsCount(const UnionFind* union_find)
 {
 	int componentsCount = 0;
-	for (int i = 0; i < union_find[i].totalSize; ++i)
+	for (int i = 0; i < union_find[0].totalSize; ++i)
 	{
 		if (union_find[i].head == i)
 			componentsCount++;
